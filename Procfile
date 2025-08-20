@@ -1,1 +1,1 @@
-web: python mcp_run.py
+web: python run.py
