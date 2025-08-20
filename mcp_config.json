@@ -1,0 +1,83 @@
+{
+  "name": "gmail-voice-messaging",
+  "description": "Gmail Voice Messaging MCP Server - Provides tools for reading and sending Gmail messages",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "get_gmail_messages",
+      "description": "Retrieve Gmail messages with optional query filtering",
+      "parameters": {
+        "query": {
+          "type": "string",
+          "description": "Gmail search query (e.g., 'from:example@gmail.com', 'is:unread')",
+          "default": ""
+        },
+        "max_results": {
+          "type": "integer",
+          "description": "Maximum number of messages to return (1-50)",
+          "default": 10
+        }
+      }
+    },
+    {
+      "name": "send_gmail_message",
+      "description": "Send a Gmail message",
+      "parameters": {
+        "to": {
+          "type": "string",
+          "description": "Recipient email address",
+          "required": true
+        },
+        "subject": {
+          "type": "string",
+          "description": "Email subject line",
+          "required": true
+        },
+        "body": {
+          "type": "string",
+          "description": "Email body content",
+          "required": true
+        }
+      }
+    },
+    {
+      "name": "get_gmail_auth_status",
+      "description": "Check Gmail authentication status",
+      "parameters": {}
+    },
+    {
+      "name": "search_gmail_messages",
+      "description": "Search Gmail messages with specific criteria",
+      "parameters": {
+        "from_email": {
+          "type": "string",
+          "description": "Filter by sender email address"
+        },
+        "subject_contains": {
+          "type": "string",
+          "description": "Filter by text in subject line"
+        },
+        "has_attachment": {
+          "type": "boolean",
+          "description": "Filter messages with/without attachments"
+        },
+        "is_unread": {
+          "type": "boolean",
+          "description": "Filter read/unread messages"
+        },
+        "newer_than": {
+          "type": "string",
+          "description": "Filter messages newer than date (format: YYYY/MM/DD)"
+        },
+        "max_results": {
+          "type": "integer",
+          "description": "Maximum number of messages to return (1-50)",
+          "default": 10
+        }
+      }
+    }
+  ],
+  "command": {
+    "python": ["python", "mcp_run.py"]
+  }
+}
