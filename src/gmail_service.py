@@ -3,21 +3,34 @@ import email
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from .auth import GmailAuth
 
 class GmailService:
-    def __init__(self):
-        self.auth = GmailAuth()
+    def __init__(self, auth_instance=None):
+        self.auth = auth_instance or GmailAuth()
         self.service = None
+        self.user_id = None
         
-    def authenticate(self):
+    def authenticate(self, user_id=None):
+        """Authenticate with automatic token refresh"""
+        if user_id:
+            self.user_id = user_id
+            if hasattr(self.auth, 'set_user_id'):
+                self.auth.set_user_id(user_id)
+        
         creds = self.auth.get_credentials()
-        if creds:
-            self.service = build('gmail', 'v1', credentials=creds)
-            return True
+        if creds and creds.valid:
+            try:
+                self.service = build('gmail', 'v1', credentials=creds)
+                return True
+            except Exception as e:
+                print(f"Error building Gmail service: {e}")
+                return False
         return False
     
     def get_messages(self, query='', max_results=10):
+        """Get messages with automatic token refresh on auth failure"""
         if not self.service:
             raise Exception("Not authenticated")
             
@@ -53,6 +66,13 @@ class GmailService:
                 
             return detailed_messages
             
+        except HttpError as error:
+            if error.resp.status == 401:  # Unauthorized - token expired
+                print("Token expired, attempting to re-authenticate...")
+                if self.authenticate(self.user_id):
+                    return self.get_messages(query, max_results)  # Retry
+            print(f'HTTP error occurred: {error}')
+            return []
         except Exception as error:
             print(f'An error occurred: {error}')
             return []
@@ -77,6 +97,7 @@ class GmailService:
         return body
     
     def send_message(self, to, subject, body):
+        """Send message with automatic token refresh on auth failure"""
         if not self.service:
             raise Exception("Not authenticated")
             
@@ -96,6 +117,13 @@ class GmailService:
             
             return send_message
             
+        except HttpError as error:
+            if error.resp.status == 401:  # Unauthorized - token expired
+                print("Token expired, attempting to re-authenticate...")
+                if self.authenticate(self.user_id):
+                    return self.send_message(to, subject, body)  # Retry
+            print(f'HTTP error occurred: {error}')
+            return None
         except Exception as error:
             print(f'An error occurred: {error}')
             return None
