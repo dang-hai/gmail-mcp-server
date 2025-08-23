@@ -51,3 +51,4 @@ Thumbs.db
 # Testing
 test_*.py
 *.log
+.env.remote
