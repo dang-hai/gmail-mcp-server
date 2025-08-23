@@ -11,12 +11,32 @@ from typing import Optional, Dict, Any
 
 class Database:
     def __init__(self):
-        self.connection_string = os.getenv('DATABASE_URL')
-        if not self.connection_string:
-            raise ValueError("DATABASE_URL environment variable not set")
+        self.user = os.getenv("DB_USER")
+        self.password = os.getenv("DB_PASSWORD")
+        self.host = os.getenv("DB_HOST")
+        self.port = os.getenv("DB_PORT")
+        self.dbname = os.getenv("DB_NAME")
+        
+        if not all([self.user, self.password, self.host, self.port, self.dbname]):
+            raise ValueError("Missing required database environment variables: DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME")
         
     def get_connection(self):
-        return psycopg2.connect(self.connection_string)
+        try:
+            print(f"Attempting to connect to database...")  # Debug log
+            return psycopg2.connect(
+                user=self.user,
+                password=self.password,
+                host=self.host,
+                port=self.port,
+                dbname=self.dbname,
+                sslmode='require',
+                connect_timeout=10,
+                application_name="gmail-voice-messaging"
+            )
+        except psycopg2.Error as e:
+            print(f"Database connection error: {e}")
+            print(f"Host: {self.host}, Port: {self.port}, Database: {self.dbname}, User: {self.user}")
+            raise
     
     def create_tables(self):
         """Create necessary tables if they don't exist"""
