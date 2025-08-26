@@ -65,6 +65,18 @@ class Database:
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+                
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS auth_tokens (
+                        id SERIAL PRIMARY KEY,
+                        auth_token VARCHAR(255) UNIQUE NOT NULL,
+                        phone_number VARCHAR(20) NOT NULL,
+                        used BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '15 minutes')
+                    )
+                """)
                 conn.commit()
     
     def get_or_create_user(self, session_id: str) -> Dict[str, Any]:
@@ -209,3 +221,76 @@ class Database:
         except Exception as e:
             print(f"Error deleting OAuth tokens: {e}")
             return False
+    
+    def save_auth_token(self, auth_token: str, phone_number: str) -> bool:
+        """Save temporary authentication token for phone number"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO auth_tokens (auth_token, phone_number)
+                        VALUES (%s, %s)
+                        ON CONFLICT (auth_token) DO UPDATE SET
+                        phone_number = EXCLUDED.phone_number,
+                        used = FALSE,
+                        created_at = CURRENT_TIMESTAMP,
+                        expires_at = CURRENT_TIMESTAMP + INTERVAL '15 minutes'
+                    """, (auth_token, phone_number))
+                    conn.commit()
+                    return True
+        except Exception as e:
+            print(f"Error saving auth token: {e}")
+            return False
+    
+    def verify_auth_token(self, auth_token: str) -> Optional[str]:
+        """Verify auth token and return phone number if valid and unused"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT phone_number, used, expires_at
+                        FROM auth_tokens 
+                        WHERE auth_token = %s
+                    """, (auth_token,))
+                    
+                    token_data = cur.fetchone()
+                    if not token_data:
+                        return None
+                    
+                    # Check if token is expired
+                    if token_data['expires_at'] < datetime.now(timezone.utc):
+                        return None
+                    
+                    # Check if token is already used
+                    if token_data['used']:
+                        return None
+                    
+                    # Mark token as used
+                    cur.execute("""
+                        UPDATE auth_tokens 
+                        SET used = TRUE, updated_at = CURRENT_TIMESTAMP
+                        WHERE auth_token = %s
+                    """, (auth_token,))
+                    conn.commit()
+                    
+                    return token_data['phone_number']
+                    
+        except Exception as e:
+            print(f"Error verifying auth token: {e}")
+            return None
+    
+    def cleanup_expired_auth_tokens(self) -> int:
+        """Clean up expired authentication tokens"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        DELETE FROM auth_tokens 
+                        WHERE expires_at < CURRENT_TIMESTAMP
+                    """)
+                    deleted_count = cur.rowcount
+                    conn.commit()
+                    return deleted_count
+        except Exception as e:
+            print(f"Error cleaning up auth tokens: {e}")
+            return 0

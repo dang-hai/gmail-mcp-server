@@ -9,6 +9,7 @@ import urllib.parse
 from twilio.rest import Client
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
+from .database import Database
 
 load_dotenv()
 
@@ -23,7 +24,7 @@ class WhatsAppAuthService:
             raise ValueError("Missing required Twilio environment variables: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER")
         
         self.client = Client(self.account_sid, self.auth_token)
-        self.pending_auths = {}  # Store pending authentications in memory (use Redis in production)
+        self.db = Database()  # Use Supabase database for token storage
     
     def parse_phone_from_twilio_call(self, twilio_request_data: Dict[str, Any]) -> Optional[str]:
         """
@@ -50,10 +51,12 @@ class WhatsAppAuthService:
     def generate_auth_token(self, phone_number: str) -> str:
         """Generate a unique authentication token for the phone number"""
         auth_token = str(uuid.uuid4())
-        self.pending_auths[auth_token] = {
-            'phone_number': phone_number,
-            'used': False
-        }
+        
+        # Save token to database
+        success = self.db.save_auth_token(auth_token, phone_number)
+        if not success:
+            raise Exception("Failed to save authentication token")
+        
         return auth_token
     
     def create_gmail_auth_url(self, phone_number: str) -> str:
@@ -124,18 +127,11 @@ This link is secure and will connect your phone number to your Gmail account for
         Returns:
             Phone number if token is valid and unused, None otherwise
         """
-        auth_data = self.pending_auths.get(auth_token)
-        
-        if not auth_data or auth_data['used']:
-            return None
-        
-        # Mark token as used
-        auth_data['used'] = True
-        
-        return auth_data['phone_number']
+        # Verify token using database
+        return self.db.verify_auth_token(auth_token)
     
     def cleanup_expired_tokens(self):
         """Clean up expired authentication tokens (call periodically)"""
-        # In production, implement with expiration timestamps
-        # For now, tokens stay in memory until server restart
-        pass
+        deleted_count = self.db.cleanup_expired_auth_tokens()
+        if deleted_count > 0:
+            print(f"Cleaned up {deleted_count} expired auth tokens")
