@@ -58,20 +58,25 @@ def _initiate_phone_auth_helper(phone_number: str) -> Dict[str, Any]:
 
 @mcp.tool()
 def initiate_phone_authentication(
-    twilio_request_data: Dict[str, Any]
+    phone_number: str
 ) -> Dict[str, Any]:
     """
-    Initiate Gmail authentication process from Twilio WhatsApp call.
+    Initiate Gmail authentication process for phone number.
     Sends authentication link to user's phone via WhatsApp.
     
     Args:
-        twilio_request_data: Request data from Twilio webhook containing phone number
+        phone_number: User's phone number (including country code, e.g., +1234567890)
     
     Returns:
         Dictionary with status and message
     """
     try:
+        print(f"=== INITIATE AUTH DEBUG ===")
+        print(f"Phone number received: '{phone_number}'")
+        
         phone_auth = PhoneBasedGmailAuth()
+        # Convert phone number to Twilio request format
+        twilio_request_data = {"From": f"whatsapp:{phone_number}"}
         success = phone_auth.initiate_phone_auth(twilio_request_data)
         
         if success:
