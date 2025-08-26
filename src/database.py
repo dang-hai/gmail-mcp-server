@@ -258,7 +258,13 @@ class Database:
                         return None
                     
                     # Check if token is expired
-                    if token_data['expires_at'] < datetime.now(timezone.utc):
+                    # Make sure both datetimes are timezone-aware for comparison
+                    expires_at = token_data['expires_at']
+                    if expires_at.tzinfo is None:
+                        # Add UTC timezone if the datetime is naive
+                        expires_at = expires_at.replace(tzinfo=timezone.utc)
+                        
+                    if expires_at < datetime.now(timezone.utc):
                         return None
                     
                     # Check if token is already used
