@@ -285,7 +285,10 @@ def gmail_phone_auth():
             <p>Invalid or expired authentication link. Please request a new link via WhatsApp.</p>
             '''), 400
         
-        authorization_url, state = flow.authorization_url(prompt='consent')
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            response_type='code',
+            prompt='consent')
         
         # Store phone_token in session for callback
         session['phone_token'] = phone_token
