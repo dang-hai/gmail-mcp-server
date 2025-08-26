@@ -128,16 +128,28 @@ class PhoneBasedGmailAuth:
             True if successful, False otherwise
         """
         try:
-            # Verify phone token and get phone number
+            # Verify phone token and get phone number (this marks token as used)
             phone_number = self.whatsapp_service.verify_auth_token(phone_token)
             if not phone_number:
                 print("Invalid or expired phone token")
                 return False
             
-            # Create OAuth flow
-            flow = self.create_oauth_flow(phone_token)
-            if not flow:
-                return False
+            # Create OAuth flow directly without checking token again
+            client_config = {
+                "web": {
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [self.redirect_uri]
+                }
+            }
+            
+            flow = Flow.from_client_config(
+                client_config,
+                scopes=SCOPES
+            )
+            flow.redirect_uri = self.redirect_uri
             
             # Exchange authorization code for credentials
             flow.fetch_token(code=authorization_code)
