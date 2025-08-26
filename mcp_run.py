@@ -17,6 +17,9 @@ sys.path.insert(0, script_dir)
 from src.mcp_server import mcp
 
 def main():
+
+    port = int(os.environ.get("PORT", 8000))
+
     print("Gmail Voice Messaging MCP Server", file=sys.stderr)
     print("=" * 40, file=sys.stderr)
     print(f"Working directory: {os.getcwd()}", file=sys.stderr)
@@ -28,27 +31,10 @@ def main():
     print("- search_gmail_messages: Search messages with filters", file=sys.stderr)
     print("", file=sys.stderr)
     
-    # Quick auth test
-    try:
-        from src.auth_hybrid import get_gmail_auth
-        gmail_auth = get_gmail_auth()
-        creds = gmail_auth.get_credentials()
-        if creds and creds.valid:
-            print("✅ Authentication verified", file=sys.stderr)
-            print(f"Auth type: {'Service Account' if os.getenv('PORT') else 'OAuth Desktop'}", file=sys.stderr)
-        else:
-            print("❌ Authentication failed", file=sys.stderr)
-            if not os.getenv('PORT'):
-                print("For local: run 'python desktop_auth.py' first", file=sys.stderr)
-            else:
-                print("For cloud: set GOOGLE_SERVICE_ACCOUNT_JSON env var", file=sys.stderr)
-    except Exception as e:
-        print(f"❌ Setup error: {str(e)}", file=sys.stderr)
-    
     try:
         print("🚀 MCP Server started successfully!", file=sys.stderr)
         print("Ready to receive MCP requests...", file=sys.stderr)
-        mcp.run()
+        mcp.run(transport="http", host="0.0.0.0", port=port)
         
     except KeyboardInterrupt:
         print("\n👋 MCP Server stopped by user", file=sys.stderr)

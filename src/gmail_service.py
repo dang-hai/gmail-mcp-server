@@ -12,14 +12,19 @@ class GmailService:
         self.service = None
         self.user_id = None
         
-    def authenticate(self, user_id=None):
+    def authenticate(self, user_id=None, phone_number=None):
         """Authenticate with automatic token refresh"""
         if user_id:
             self.user_id = user_id
             if hasattr(self.auth, 'set_user_id'):
                 self.auth.set_user_id(user_id)
         
-        creds = self.auth.get_credentials()
+        # Support phone number authentication
+        if phone_number:
+            creds = self.auth.get_credentials(phone_number)
+        else:
+            creds = self.auth.get_credentials()
+            
         if creds and creds.valid:
             try:
                 self.service = build('gmail', 'v1', credentials=creds)

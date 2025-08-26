@@ -46,6 +46,7 @@ class Database:
                     CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,
                         session_id VARCHAR(255) UNIQUE NOT NULL,
+                        phone_number VARCHAR(20) UNIQUE,
                         email VARCHAR(255),
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -99,6 +100,44 @@ class Database:
                 cur.execute(
                     "UPDATE users SET email = %s WHERE id = %s",
                     (email, user_id)
+                )
+                conn.commit()
+    
+    def get_or_create_user_by_phone(self, phone_number: str) -> Dict[str, Any]:
+        """Get user by phone number or create new user"""
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT * FROM users WHERE phone_number = %s",
+                    (phone_number,)
+                )
+                user = cur.fetchone()
+                
+                if not user:
+                    # Create session_id from phone number
+                    session_id = f"phone_{phone_number.replace('+', '').replace(' ', '')}"
+                    cur.execute(
+                        "INSERT INTO users (session_id, phone_number) VALUES (%s, %s) RETURNING *",
+                        (session_id, phone_number)
+                    )
+                    user = cur.fetchone()
+                    conn.commit()
+                else:
+                    cur.execute(
+                        "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = %s",
+                        (user['id'],)
+                    )
+                    conn.commit()
+                
+                return dict(user)
+    
+    def update_user_phone(self, user_id: int, phone_number: str):
+        """Update user's phone number"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET phone_number = %s WHERE id = %s",
+                    (phone_number, user_id)
                 )
                 conn.commit()
     

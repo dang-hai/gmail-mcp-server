@@ -6,6 +6,7 @@ from .auth import GmailAuth
 from .auth_web import GmailWebAuth
 from .gmail_service import GmailService
 from .database import Database
+from .phone_based_auth import PhoneBasedGmailAuth
 
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(16))
@@ -263,6 +264,135 @@ def send():
             
     except Exception as e:
         return f'Error sending message: {str(e)}'
+
+@app.route('/auth/gmail')
+def gmail_phone_auth():
+    """Start Gmail OAuth authentication for phone users"""
+    try:
+        phone_token = request.args.get('phone_token')
+        if not phone_token:
+            return render_template_string('''
+            <h1>Authentication Error</h1>
+            <p>Invalid authentication link. Please request a new link via WhatsApp.</p>
+            '''), 400
+        
+        phone_auth = PhoneBasedGmailAuth()
+        flow = phone_auth.create_oauth_flow(phone_token)
+        
+        if not flow:
+            return render_template_string('''
+            <h1>Authentication Error</h1>
+            <p>Invalid or expired authentication link. Please request a new link via WhatsApp.</p>
+            '''), 400
+        
+        authorization_url, _ = flow.authorization_url(prompt='consent')
+        session['phone_token'] = phone_token
+        
+        return redirect(authorization_url)
+        
+    except Exception as e:
+        return render_template_string('''
+        <h1>Authentication Error</h1>
+        <p>Failed to start authentication: {{ error }}</p>
+        ''', error=str(e)), 500
+
+@app.route('/auth/gmail/callback')
+def gmail_phone_callback():
+    """Handle OAuth callback for phone users"""
+    try:
+        code = request.args.get('code')
+        phone_token = session.get('phone_token')
+        
+        if not code:
+            return render_template_string('''
+            <h1>Authentication Error</h1>
+            <p>No authorization code received from Google.</p>
+            '''), 400
+        
+        if not phone_token:
+            return render_template_string('''
+            <h1>Authentication Error</h1>
+            <p>Session expired. Please request a new authentication link via WhatsApp.</p>
+            '''), 400
+        
+        phone_auth = PhoneBasedGmailAuth()
+        success = phone_auth.complete_oauth_flow(code, phone_token)
+        
+        # Clear session
+        session.pop('phone_token', None)
+        
+        if success:
+            return render_template_string('''
+            <h1>🎉 Authentication Successful!</h1>
+            <p>Your Gmail account has been successfully connected to your phone number!</p>
+            <p>You will receive a confirmation message on WhatsApp.</p>
+            <p>You can now close this page and use voice messaging to interact with your Gmail.</p>
+            <hr>
+            <p>Available voice commands:</p>
+            <ul>
+                <li>"Read my emails"</li>
+                <li>"Send an email"</li>
+                <li>"Check unread messages"</li>
+            </ul>
+            ''')
+        else:
+            return render_template_string('''
+            <h1>Authentication Failed</h1>
+            <p>Failed to complete the authentication process.</p>
+            <p>Please request a new authentication link via WhatsApp and try again.</p>
+            '''), 400
+        
+    except Exception as e:
+        return render_template_string('''
+        <h1>Authentication Error</h1>
+        <p>Error during authentication: {{ error }}</p>
+        <p>Please request a new authentication link via WhatsApp and try again.</p>
+        ''', error=str(e)), 500
+
+@app.route('/twilio/webhook', methods=['POST'])
+def twilio_webhook():
+    """Handle Twilio WhatsApp webhook for voice calls"""
+    try:
+        # Get request data from Twilio
+        twilio_data = dict(request.form) or dict(request.json) if request.json else {}
+        
+        # Initiate phone authentication
+        phone_auth = PhoneBasedGmailAuth()
+        success = phone_auth.initiate_phone_auth(twilio_data)
+        
+        if success:
+            # Return TwiML response for Twilio
+            return '''
+            <?xml version="1.0" encoding="UTF-8"?>
+            <Response>
+                <Message>
+                    📱 Authentication link sent to your WhatsApp! 
+                    Please check your messages and click the link to connect your Gmail account.
+                </Message>
+            </Response>
+            ''', 200, {'Content-Type': 'application/xml'}
+        else:
+            return '''
+            <?xml version="1.0" encoding="UTF-8"?>
+            <Response>
+                <Message>
+                    ❌ Sorry, there was an error sending the authentication link. 
+                    Please try calling again.
+                </Message>
+            </Response>
+            ''', 200, {'Content-Type': 'application/xml'}
+        
+    except Exception as e:
+        print(f"Webhook error: {e}")
+        return '''
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Response>
+            <Message>
+                ❌ Sorry, there was an error processing your request. 
+                Please try again later.
+            </Message>
+        </Response>
+        ''', 200, {'Content-Type': 'application/xml'}
 
 @app.route('/logout')
 def logout():
