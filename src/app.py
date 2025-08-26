@@ -287,7 +287,6 @@ def gmail_phone_auth():
         
         authorization_url, state = flow.authorization_url(
             access_type='offline',
-            response_type='code',
             prompt='consent')
         
         # Store phone_token in session for callback
