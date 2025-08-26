@@ -23,6 +23,10 @@ def get_gmail_service():
 def _initiate_phone_auth_helper(phone_number: str) -> Dict[str, Any]:
     """Helper function to initiate phone authentication"""
     try:
+        print(f"=== PHONE AUTH DEBUG ===")
+        print(f"Attempting to send auth link to: '{phone_number}'")
+        print(f"Formatted for Twilio: 'whatsapp:{phone_number}'")
+        
         phone_auth = PhoneBasedGmailAuth()
         twilio_request_data = {"From": f"whatsapp:{phone_number}"}
         success = phone_auth.initiate_phone_auth(twilio_request_data)
@@ -105,6 +109,12 @@ def read_emails(
         List of email messages with sender, subject, date, and body
     """
     try:
+        print(f"=== READ EMAILS DEBUG ===")
+        print(f"Phone number received from Vapi: '{phone_number}'")
+        print(f"Phone number type: {type(phone_number)}")
+        print(f"Phone number length: {len(phone_number)}")
+        print(f"Query: '{query}'")
+        print(f"Max results: {max_results}")
         phone_auth = PhoneBasedGmailAuth()
         gmail_service = GmailService(phone_auth)
         

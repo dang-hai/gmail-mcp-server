@@ -36,16 +36,23 @@ class WhatsAppAuthService:
         Returns:
             Formatted phone number or None if not found
         """
+        print(f"=== PHONE PARSING DEBUG ===")
+        print(f"Twilio request data: {twilio_request_data}")
+        
         # Twilio sends the phone number in 'From' field
         phone_number = twilio_request_data.get('From')
+        print(f"Raw phone number from 'From' field: '{phone_number}'")
         
         if not phone_number:
+            print("No phone number found in 'From' field")
             return None
         
         # Remove 'whatsapp:' prefix if present
         if phone_number.startswith('whatsapp:'):
             phone_number = phone_number[9:]
+            print(f"Removed 'whatsapp:' prefix, result: '{phone_number}'")
         
+        print(f"Final parsed phone number: '{phone_number}'")
         return phone_number
     
     def generate_auth_token(self, phone_number: str) -> str:
@@ -87,7 +94,14 @@ class WhatsAppAuthService:
             True if message sent successfully, False otherwise
         """
         try:
+            print(f"=== WHATSAPP SEND DEBUG ===")
+            print(f"Phone number: '{phone_number}'")
+            print(f"Account SID: {self.account_sid}")
+            print(f"WhatsApp number: {self.whatsapp_number}")
+            print(f"Base URL: {self.base_url}")
+            
             auth_url = self.create_gmail_auth_url(phone_number)
+            print(f"Generated auth URL: {auth_url}")
             
             message_body = f"""
 🔐 Gmail Authentication Required
@@ -104,6 +118,9 @@ This link is secure and will connect your phone number to your Gmail account for
             # Format phone number for WhatsApp
             whatsapp_to = f"whatsapp:{phone_number}"
             
+            print(f"Sending to: {whatsapp_to}")
+            print(f"From: {self.whatsapp_number}")
+            
             message = self.client.messages.create(
                 body=message_body,
                 from_=self.whatsapp_number,
@@ -111,10 +128,16 @@ This link is secure and will connect your phone number to your Gmail account for
             )
             
             print(f"WhatsApp auth message sent successfully. SID: {message.sid}")
+            print(f"Message status: {message.status}")
             return True
             
         except Exception as e:
             print(f"Error sending WhatsApp message: {e}")
+            print(f"Error type: {type(e).__name__}")
+            if hasattr(e, 'code'):
+                print(f"Twilio error code: {e.code}")
+            if hasattr(e, 'msg'):
+                print(f"Twilio error message: {e.msg}")
             return False
     
     def check_auth_token(self, auth_token: str) -> Optional[str]:
