@@ -242,8 +242,47 @@ class Database:
             print(f"Error saving auth token: {e}")
             return False
     
+    def check_auth_token(self, auth_token: str) -> Optional[str]:
+        """Check auth token validity without marking as used"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("""
+                        SELECT phone_number, used, expires_at
+                        FROM auth_tokens 
+                        WHERE auth_token = %s
+                    """, (auth_token,))
+                    
+                    token_data = cur.fetchone()
+                    if not token_data:
+                        return None
+                    
+                    # Check if token is expired
+                    # Make sure both datetimes are timezone-aware for comparison
+                    expires_at = token_data['expires_at']
+                    if expires_at.tzinfo is None:
+                        # Add UTC timezone if the datetime is naive
+                        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+                    print("expires_at", expires_at)
+                    print("datetime.now(timezone.utc)", datetime.now(timezone.utc))
+                    print("token_data['used']", token_data['used'])
+                        
+                    if expires_at < datetime.now(timezone.utc):
+                        return None
+                    
+                    # Check if token is already used
+                    if token_data['used']:
+                        return None
+                    
+                    return token_data['phone_number']
+                    
+        except Exception as e:
+            print(f"Error checking auth token: {e}")
+            return None
+
     def verify_auth_token(self, auth_token: str) -> Optional[str]:
-        """Verify auth token and return phone number if valid and unused"""
+        """Verify auth token and mark as used if valid"""
         try:
             with self.get_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:

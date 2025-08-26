@@ -117,9 +117,21 @@ This link is secure and will connect your phone number to your Gmail account for
             print(f"Error sending WhatsApp message: {e}")
             return False
     
+    def check_auth_token(self, auth_token: str) -> Optional[str]:
+        """
+        Check authentication token validity without marking as used.
+        
+        Args:
+            auth_token: Authentication token from URL
+            
+        Returns:
+            Phone number if token is valid and unused, None otherwise
+        """
+        return self.db.check_auth_token(auth_token)
+    
     def verify_auth_token(self, auth_token: str) -> Optional[str]:
         """
-        Verify authentication token and return associated phone number.
+        Verify authentication token and mark as used if valid.
         
         Args:
             auth_token: Authentication token from URL

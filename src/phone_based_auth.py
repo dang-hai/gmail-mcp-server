@@ -90,8 +90,8 @@ class PhoneBasedGmailAuth:
         Returns:
             OAuth Flow object or None if token invalid
         """
-        # Verify phone token
-        phone_number = self.whatsapp_service.verify_auth_token(phone_token)
+        # Check phone token without marking as used
+        phone_number = self.whatsapp_service.check_auth_token(phone_token)
         if not phone_number:
             return None
         
