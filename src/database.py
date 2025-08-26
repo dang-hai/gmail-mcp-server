@@ -263,6 +263,10 @@ class Database:
                     if expires_at.tzinfo is None:
                         # Add UTC timezone if the datetime is naive
                         expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+                    print("expires_at", expires_at)
+                    print("datetime.now(timezone.utc)", datetime.now(timezone.utc))
+                    print("token_data['used']", token_data['used'])
                         
                     if expires_at < datetime.now(timezone.utc):
                         return None
