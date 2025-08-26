@@ -20,6 +20,30 @@ def get_gmail_service():
     gmail_service.auth = get_gmail_auth()
     return gmail_service
 
+def _initiate_phone_auth_helper(phone_number: str) -> Dict[str, Any]:
+    """Helper function to initiate phone authentication"""
+    try:
+        phone_auth = PhoneBasedGmailAuth()
+        twilio_request_data = {"From": f"whatsapp:{phone_number}"}
+        success = phone_auth.initiate_phone_auth(twilio_request_data)
+        
+        if success:
+            return {
+                "status": "success",
+                "message": "Authentication link sent via WhatsApp"
+            }
+        else:
+            return {
+                "status": "error", 
+                "message": "Failed to send authentication link"
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to initiate phone authentication: {str(e)}"
+        }
+
 # Note: Removed get_gmail_messages - use get_gmail_messages_by_phone instead
 
 # Note: Removed send_gmail_message - use send_gmail_message_by_phone instead
@@ -87,8 +111,11 @@ def read_emails(
         # Authenticate using phone number
         if not gmail_service.authenticate(phone_number=phone_number):
             # Try to initiate auth if not authenticated
-            initiate_phone_authentication({"From": f"whatsapp:{phone_number}"})
-            raise Exception("Gmail authentication required. I've sent you an authentication link via WhatsApp. Please click the link and try again.")
+            auth_result = _initiate_phone_auth_helper(phone_number)
+            if auth_result["status"] == "success":
+                raise Exception("Gmail authentication required. I've sent you an authentication link via WhatsApp. Please click the link and try again.")
+            else:
+                raise Exception(f"Failed to send authentication link: {auth_result['message']}")
         
         # Validate max_results for voice (keep it small)
         max_results = max(1, min(max_results, 10))
@@ -125,8 +152,11 @@ def send_email(
         # Authenticate using phone number
         if not gmail_service.authenticate(phone_number=phone_number):
             # Try to initiate auth if not authenticated
-            initiate_phone_authentication({"From": f"whatsapp:{phone_number}"})
-            raise Exception("Gmail authentication required. I've sent you an authentication link via WhatsApp. Please click the link and try again.")
+            auth_result = _initiate_phone_auth_helper(phone_number)
+            if auth_result["status"] == "success":
+                raise Exception("Gmail authentication required. I've sent you an authentication link via WhatsApp. Please click the link and try again.")
+            else:
+                raise Exception(f"Failed to send authentication link: {auth_result['message']}")
         
         # Validate inputs
         if not to or not subject or not body:
