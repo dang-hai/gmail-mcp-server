@@ -309,6 +309,11 @@ def gmail_phone_callback():
         state = request.args.get('state')
         phone_token = session.get('phone_token')
         expected_state = session.get('oauth_state')
+
+        print("code", code)
+        print("state", state)
+        print("phone_token", phone_token)
+        print("expected_state", expected_state)
         
         if not code:
             return render_template_string('''
