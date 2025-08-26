@@ -13,6 +13,39 @@ from .phone_based_auth import PhoneBasedGmailAuth
 # Create the FastMCP app instance
 mcp = FastMCP("Gmail Voice Messaging Server")
 
+@mcp.get("/")
+def health_check():
+    """Health check endpoint for Railway deployment"""
+    return {
+        "status": "healthy",
+        "service": "Gmail Voice Messaging MCP Server", 
+        "version": "1.0.0",
+        "endpoints": {
+            "mcp": "/mcp",
+            "health": "/",
+            "tools": [
+                "get_gmail_messages",
+                "send_gmail_message", 
+                "get_gmail_auth_status",
+                "search_gmail_messages",
+                "initiate_phone_authentication",
+                "get_gmail_messages_by_phone",
+                "send_gmail_message_by_phone", 
+                "get_phone_auth_status"
+            ]
+        },
+        "integrations": [
+            "WhatsApp Authentication",
+            "Vapi Voice AI",
+            "Supabase Database"
+        ]
+    }
+
+@mcp.get("/health")
+def health():
+    """Simple health check"""
+    return {"status": "ok", "service": "mcp-gmail-server"}
+
 def get_gmail_service():
     """Get Gmail service instance with hybrid authentication"""
     gmail_service = GmailService()
