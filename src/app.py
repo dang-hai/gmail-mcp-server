@@ -285,8 +285,11 @@ def gmail_phone_auth():
             <p>Invalid or expired authentication link. Please request a new link via WhatsApp.</p>
             '''), 400
         
-        authorization_url, _ = flow.authorization_url(prompt='consent')
+        authorization_url, state = flow.authorization_url(prompt='consent')
+        
+        # Store phone_token in session for callback
         session['phone_token'] = phone_token
+        session['oauth_state'] = state
         
         return redirect(authorization_url)
         
@@ -301,7 +304,9 @@ def gmail_phone_callback():
     """Handle OAuth callback for phone users"""
     try:
         code = request.args.get('code')
+        state = request.args.get('state')
         phone_token = session.get('phone_token')
+        expected_state = session.get('oauth_state')
         
         if not code:
             return render_template_string('''
@@ -315,11 +320,18 @@ def gmail_phone_callback():
             <p>Session expired. Please request a new authentication link via WhatsApp.</p>
             '''), 400
         
+        if state != expected_state:
+            return render_template_string('''
+            <h1>Authentication Error</h1>
+            <p>Invalid state parameter. Please try the authentication process again.</p>
+            '''), 400
+        
         phone_auth = PhoneBasedGmailAuth()
         success = phone_auth.complete_oauth_flow(code, phone_token)
         
         # Clear session
         session.pop('phone_token', None)
+        session.pop('oauth_state', None)
         
         if success:
             return render_template_string('''
