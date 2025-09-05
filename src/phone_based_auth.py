@@ -37,12 +37,13 @@ class PhoneBasedGmailAuth:
         """Set the current user ID for this auth instance"""
         self.current_user_id = user_id
     
-    def initiate_phone_auth(self, twilio_request_data: Dict[str, Any]) -> bool:
+    def initiate_phone_auth(self, twilio_request_data: Dict[str, Any], message_type: str = "sms") -> bool:
         """
         Initiate authentication process from Twilio WhatsApp call.
         
         Args:
             twilio_request_data: Data from Twilio webhook request
+            message_type: Type of message to send ("sms", "whatsapp", or "auto" for fallback behavior)
             
         Returns:
             True if auth link sent successfully, False otherwise
@@ -68,22 +69,38 @@ class PhoneBasedGmailAuth:
                     self._send_already_authenticated_message(phone_number)
                     return True
             
-            # Try SMS first, then WhatsApp as fallback
-            success = self.messaging_service.send_auth_link_sms(phone_number)
-            
-            if success:
-                print(f"Authentication link sent via SMS to {phone_number}")
-                return True
-            else:
-                print(f"Failed to send SMS, trying WhatsApp as fallback for {phone_number}")
+            # Send based on message_type parameter
+            if message_type == "whatsapp":
                 success = self.messaging_service.send_auth_link_whatsapp(phone_number)
+                if success:
+                    print(f"Authentication link sent via WhatsApp to {phone_number}")
+                else:
+                    print(f"Failed to send authentication link via WhatsApp to {phone_number}")
+                return success
+            elif message_type == "sms":
+                success = self.messaging_service.send_auth_link_sms(phone_number)
+                if success:
+                    print(f"Authentication link sent via SMS to {phone_number}")
+                else:
+                    print(f"Failed to send authentication link via SMS to {phone_number}")
+                return success
+            else:  # message_type == "auto" or any other value - fallback behavior
+                # Try SMS first, then WhatsApp as fallback
+                success = self.messaging_service.send_auth_link_sms(phone_number)
                 
                 if success:
-                    print(f"Authentication link sent to {phone_number}")
+                    print(f"Authentication link sent via SMS to {phone_number}")
+                    return True
                 else:
-                    print(f"Failed to send authentication link via both SMS and WhatsApp to {phone_number}")
-                
-                return success
+                    print(f"Failed to send SMS, trying WhatsApp as fallback for {phone_number}")
+                    success = self.messaging_service.send_auth_link_whatsapp(phone_number)
+                    
+                    if success:
+                        print(f"Authentication link sent via WhatsApp to {phone_number}")
+                    else:
+                        print(f"Failed to send authentication link via both SMS and WhatsApp to {phone_number}")
+                    
+                    return success
             
         except Exception as e:
             print(f"Error in initiate_phone_auth: {e}")

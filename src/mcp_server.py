@@ -77,12 +77,13 @@ def initiate_gmail_auth(
             "To": phone_number
         }
         
-        success = phone_auth.initiate_phone_auth(twilio_request_data)
+        success = phone_auth.initiate_phone_auth(twilio_request_data, message_type)
         
         if success:
+            message_medium = "WhatsApp" if message_type == "whatsapp" else "SMS" if message_type == "sms" else "your messages"
             return {
                 "success": True,
-                "message": f"Authentication link sent to {phone_number}. Please check your messages and follow the link to connect your Gmail account.",
+                "message": f"Authentication link sent to {phone_number} via {message_medium}. Please check your messages and follow the link to connect your Gmail account.",
                 "next_steps": "Click the authentication link sent to your phone to complete Gmail setup."
             }
         else:
