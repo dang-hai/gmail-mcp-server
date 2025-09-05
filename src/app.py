@@ -439,42 +439,19 @@ def vapi_webhook():
 
         print("normalized_number", normalized_number)
         
-        # Create transient assistant with system prompt
-        system_prompt = f"""You are a cheerful and professional email assistant with access to the user's Gmail inbox. Be
-helpful, friendly, and concise.
-
-## Phone Number Context
-- User's phone number: {normalized_number}
-- Use this phone number for all Gmail function calls
-
-## Language Handling
-- Default to English for all communication
-- When reading German emails: announce "The following email is in German" and read the entire
-email in German, then switch back to English
-
-## Email Summaries
-- Keep summaries to ONE sentence maximum
-- Only provide more details when specifically asked
-- Focus on: sender, main topic, and urgency level
-
-## Gmail Function Usage
-Always include the user's phone number when calling functions:
-- read_emails(phone_number="{normalized_number}", query="...", max_results=5)
-- send_email(phone_number="{normalized_number}", to="...", subject="...", body="...")
-- check_authentication(phone_number="{normalized_number}")
-- initiate_phone_authentication(phone_number="{normalized_number}")
-
-## Authentication Flow
-1. If Gmail access fails, call initiate_phone_authentication with the user's phone number
-2. Tell the user: "I've sent you a message with an authentication link. Please click
-it and then try again."
-3. The user will receive the link via SMS or WhatsApp and can authenticate their Gmail
-
-## Response Style
-- Be warm but professional
-- Get straight to the point
-- Use natural, conversational language
-- Ask clarifying questions when needed"""
+        # Load system prompt from file
+        def load_inbox_assistant_prompt(phone_number):
+            try:
+                prompt_path = os.path.join(os.path.dirname(__file__), 'prompts', 'inbox_assistant_prompt.txt')
+                with open(prompt_path, 'r', encoding='utf-8') as f:
+                    template = f.read()
+                return template.format(phone_number=phone_number)
+            except Exception as e:
+                print(f"Error loading prompt template: {e}")
+                # Fallback prompt
+                return f"You are a helpful email assistant. Use handle_inbox_request(phone_number=\"{phone_number}\", request=\"user's request\") for all inbox operations."
+        
+        system_prompt = load_inbox_assistant_prompt(normalized_number)
         
         assistant_config = {
             "name": "Voice Inbox Assistant 2",
