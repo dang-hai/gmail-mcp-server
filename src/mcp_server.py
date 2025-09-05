@@ -128,7 +128,7 @@ def read_emails(
             # Try to initiate auth if not authenticated
             auth_result = _initiate_phone_auth_helper(phone_number)
             if auth_result["status"] == "success":
-                raise Exception("Gmail authentication required. I've sent you an authentication link via WhatsApp. Please click the link and try again.")
+                raise Exception("Gmail authentication required. I've sent you an authentication link. Please click the link and try again.")
             else:
                 raise Exception(f"Failed to send authentication link: {auth_result['message']}")
         
@@ -169,7 +169,7 @@ def send_email(
             # Try to initiate auth if not authenticated
             auth_result = _initiate_phone_auth_helper(phone_number)
             if auth_result["status"] == "success":
-                raise Exception("Gmail authentication required. I've sent you an authentication link via WhatsApp. Please click the link and try again.")
+                raise Exception("Gmail authentication required. I've sent you an authentication link. Please click the link and try again.")
             else:
                 raise Exception(f"Failed to send authentication link: {auth_result['message']}")
         
