@@ -27,6 +27,8 @@ class PhoneBasedGmailAuth:
         self.db = Database()
         self.whatsapp_service = WhatsAppAuthService()
         self.current_user_id = None
+
+        print("DEPLOYMENT_URL", os.getenv('DEPLOYMENT_URL'))
         
         if not all([self.client_id, self.client_secret]):
             raise ValueError("Missing Google OAuth credentials: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET")

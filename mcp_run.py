@@ -18,7 +18,7 @@ from src.mcp_server import mcp
 
 def main():
 
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8001))
 
     print("Gmail Voice Messaging MCP Server", file=sys.stderr)
     print("=" * 40, file=sys.stderr)

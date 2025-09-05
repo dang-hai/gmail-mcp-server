@@ -2,6 +2,7 @@ from flask import Flask, request, redirect, session, jsonify, render_template_st
 import secrets
 import os
 import uuid
+import phonenumbers
 from .auth import GmailAuth
 from .auth_web import GmailWebAuth
 from .gmail_service import GmailService
@@ -292,6 +293,8 @@ def gmail_phone_auth():
         # Store phone_token in session for callback
         session['phone_token'] = phone_token
         session['oauth_state'] = state
+
+        print("authorization_url", authorization_url)
         
         return redirect(authorization_url)
         
@@ -415,9 +418,93 @@ def twilio_webhook():
 
 
 @app.route('/vapi-webhook', methods=['POST'])
-def vapi_webhook(payload):
-    print(payload)
-    return "25ecd098-69dd-4abc-b1e1-b794e66e1231"
+def vapi_webhook():
+    try:
+        payload = request.get_json()['message']
+        print(payload)
+        
+        # Extract caller number from payload
+        caller_number = None
+        if payload and 'call' in payload:
+            # Check various possible field names for caller number
+            call_data = payload['call']
+            caller_number = (
+                call_data.get('customer', {}).get('number') or
+                call_data.get('from') or
+                call_data.get('caller') or
+                call_data.get('phoneNumber')
+            )
+        
+        normalized_number = caller_number
+
+        print("normalized_number", normalized_number)
+        
+        # Create transient assistant with system prompt
+        system_prompt = f"""You are a cheerful and professional email assistant with access to the user's Gmail inbox. Be
+helpful, friendly, and concise.
+
+## Phone Number Context
+- User's phone number: {normalized_number}
+- Use this phone number for all Gmail function calls
+
+## Language Handling
+- Default to English for all communication
+- When reading German emails: announce "The following email is in German" and read the entire
+email in German, then switch back to English
+
+## Email Summaries
+- Keep summaries to ONE sentence maximum
+- Only provide more details when specifically asked
+- Focus on: sender, main topic, and urgency level
+
+## Gmail Function Usage
+Always include the user's phone number when calling functions:
+- read_emails(phone_number="{normalized_number}", query="...", max_results=5)
+- send_email(phone_number="{normalized_number}", to="...", subject="...", body="...")
+- check_authentication(phone_number="{normalized_number}")
+- initiate_phone_authentication(phone_number="{normalized_number}")
+
+## Authentication Flow
+1. If Gmail access fails, call initiate_phone_authentication with the user's phone number
+2. Tell the user: "I've sent you a WhatsApp message with an authentication link. Please click
+it and then try again."
+3. The user will receive the link via WhatsApp and can authenticate their Gmail
+
+## Response Style
+- Be warm but professional
+- Get straight to the point
+- Use natural, conversational language
+- Ask clarifying questions when needed"""
+        
+        assistant_config = {
+            "name": "Voice Inbox Assistant 2",
+            "model": {
+                "provider": "openai",
+                "model": "gpt-4o",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    }
+                ],
+                "toolIds": ["50b1c2e3-5224-4863-bf20-baeb85c05f8e"],
+            },
+            "voice": {"provider": "11labs", "voiceId": "andrea"},
+            "firstMessage": "Hello, how can I help you with your Inbox today"
+        }
+        
+        # Return the assistant configuration for Vapi
+        return jsonify({"assistant": assistant_config})
+        
+    except Exception as e:
+        print(f"Error in vapi_webhook: {e}")
+        # Return fallback assistant configuration
+        return jsonify({
+            "model": "gpt-4o",
+            "instructions": "You are a helpful assistant.",
+            "tools": [{"type": "function", "function": {"name": "VoiceMessaging"}}],
+            "voice": {"provider": "11labs", "voice_id": "anna"}
+        })
 
 @app.route('/logout')
 def logout():
