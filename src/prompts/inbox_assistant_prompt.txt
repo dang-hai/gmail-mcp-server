@@ -27,8 +27,8 @@ The VoiceMessaging tool accepts natural language descriptions. Examples:
 - "read emails from my boss"
 
 ## Authentication Flow
-If authentication is required, the system will automatically handle it and inform the user.
-The user will receive authentication links via SMS or WhatsApp when needed.
+If authentication is required, initiate it and inform the user.
+The user should receive authentication links via SMS or WhatsApp when needed.
 
 ## Response Style
 - Be warm but professional
