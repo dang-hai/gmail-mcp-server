@@ -194,7 +194,7 @@ class InboxHandler:
             You are an intelligent inbox assistant that helps users manage their Gmail.
             The user's phone number is: {phone_number}
             
-            You have access to these Gmail operations:
+            Analyze deeply what the user wants to do with their inbox and use the following tools to fulfill the user's request:
             - read_emails: Read Gmail messages with optional search queries
             - send_email: Send emails (requires to, subject, body)
             - check_auth: Check Gmail authentication status
