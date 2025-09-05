@@ -11,7 +11,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from dotenv import load_dotenv
 from .database import Database
-from .whatsapp_auth import WhatsAppAuthService
+from .messaging_service import MessagingService
 
 load_dotenv()
 
@@ -25,7 +25,7 @@ class PhoneBasedGmailAuth:
         self.client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
         self.redirect_uri = f"{os.getenv('DEPLOYMENT_URL', 'http://localhost:5000')}/auth/gmail/callback"
         self.db = Database()
-        self.whatsapp_service = WhatsAppAuthService()
+        self.messaging_service = MessagingService()
         self.current_user_id = None
 
         print("DEPLOYMENT_URL", os.getenv('DEPLOYMENT_URL'))
@@ -48,7 +48,7 @@ class PhoneBasedGmailAuth:
             True if auth link sent successfully, False otherwise
         """
         # Parse phone number from Twilio request
-        phone_number = self.whatsapp_service.parse_phone_from_twilio_call(twilio_request_data)
+        phone_number = self.messaging_service.parse_phone_from_twilio_call(twilio_request_data)
         
         if not phone_number:
             print("Could not parse phone number from Twilio request")
@@ -68,15 +68,22 @@ class PhoneBasedGmailAuth:
                     self._send_already_authenticated_message(phone_number)
                     return True
             
-            # Send authentication link via WhatsApp
-            success = self.whatsapp_service.send_auth_link_whatsapp(phone_number)
+            # Try SMS first, then WhatsApp as fallback
+            success = self.messaging_service.send_auth_link_sms(phone_number)
             
             if success:
-                print(f"Authentication link sent to {phone_number}")
+                print(f"Authentication link sent via SMS to {phone_number}")
+                return True
             else:
-                print(f"Failed to send authentication link to {phone_number}")
-            
-            return success
+                print(f"Failed to send SMS, trying WhatsApp as fallback for {phone_number}")
+                success = self.messaging_service.send_auth_link_whatsapp(phone_number)
+                
+                if success:
+                    print(f"Authentication link sent via WhatsApp to {phone_number}")
+                else:
+                    print(f"Failed to send authentication link via both SMS and WhatsApp to {phone_number}")
+                
+                return success
             
         except Exception as e:
             print(f"Error in initiate_phone_auth: {e}")
@@ -93,7 +100,7 @@ class PhoneBasedGmailAuth:
             OAuth Flow object or None if token invalid
         """
         # Check phone token without marking as used
-        phone_number = self.whatsapp_service.check_auth_token(phone_token)
+        phone_number = self.messaging_service.check_auth_token(phone_token)
         if not phone_number:
             return None
         
@@ -131,7 +138,7 @@ class PhoneBasedGmailAuth:
         """
         try:
             # Verify phone token and get phone number (this marks token as used)
-            phone_number = self.whatsapp_service.verify_auth_token(phone_token)
+            phone_number = self.messaging_service.verify_auth_token(phone_token)
             if not phone_number:
                 print("Invalid or expired phone token")
                 return False
@@ -235,46 +242,78 @@ class PhoneBasedGmailAuth:
     def _send_already_authenticated_message(self, phone_number: str):
         """Send message indicating user is already authenticated"""
         try:
-            message_body = """
-✅ Already Authenticated
+            message_body = """Already Authenticated
 
 Your Gmail account is already connected! You can now use voice messaging to interact with your Gmail.
 
 Try saying: "Read my emails" or "Send an email"
             """.strip()
             
-            whatsapp_to = f"whatsapp:{phone_number}"
-            
-            self.whatsapp_service.client.messages.create(
-                body=message_body,
-                from_=self.whatsapp_service.whatsapp_number,
-                to=whatsapp_to
-            )
+            # Try SMS first, then WhatsApp as fallback
+            success = self._send_sms_message(phone_number, message_body)
+            if not success:
+                print("Failed to send SMS, trying WhatsApp as fallback")
+                self._send_whatsapp_message(phone_number, message_body)
+                
         except Exception as e:
             print(f"Error sending already authenticated message: {e}")
     
     def _send_auth_success_message(self, phone_number: str):
         """Send success message after authentication"""
         try:
-            message_body = """
-🎉 Authentication Successful!
+            message_body = """Authentication Successful!
 
 Your Gmail account has been successfully connected to our voice messaging service!
 
 You can now:
-• Call to read your emails
-• Send emails via voice
-• Search your messages
+- Call to read your emails
+- Send emails via voice
+- Search your messages
 
 Your phone number is securely linked to your Gmail account.
             """.strip()
             
-            whatsapp_to = f"whatsapp:{phone_number}"
-            
-            self.whatsapp_service.client.messages.create(
-                body=message_body,
-                from_=self.whatsapp_service.whatsapp_number,
-                to=whatsapp_to
-            )
+            # Try SMS first, then WhatsApp as fallback
+            success = self._send_sms_message(phone_number, message_body)
+            if not success:
+                print("Failed to send SMS, trying WhatsApp as fallback")
+                self._send_whatsapp_message(phone_number, message_body)
+                
         except Exception as e:
             print(f"Error sending success message: {e}")
+    
+    def _send_sms_message(self, phone_number: str, message_body: str) -> bool:
+        """Send SMS message to phone number"""
+        try:
+            if not self.messaging_service.sms_number:
+                return False
+                
+            message = self.messaging_service.client.messages.create(
+                body=message_body,
+                from_=self.messaging_service.sms_number,
+                to=phone_number
+            )
+            print(f"SMS message sent successfully. SID: {message.sid}")
+            return True
+        except Exception as e:
+            print(f"Error sending SMS message: {e}")
+            return False
+    
+    def _send_whatsapp_message(self, phone_number: str, message_body: str) -> bool:
+        """Send WhatsApp message to phone number"""
+        try:
+            if not self.messaging_service.whatsapp_number:
+                return False
+                
+            whatsapp_to = f"whatsapp:{phone_number}"
+            
+            message = self.messaging_service.client.messages.create(
+                body=message_body,
+                from_=self.messaging_service.whatsapp_number,
+                to=whatsapp_to
+            )
+            print(f"WhatsApp message sent successfully. SID: {message.sid}")
+            return True
+        except Exception as e:
+            print(f"Error sending WhatsApp message: {e}")
+            return False

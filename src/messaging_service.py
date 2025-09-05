@@ -1,6 +1,6 @@
 """
-WhatsApp authentication service using Twilio.
-Handles phone number parsing and sending authentication links via WhatsApp.
+Messaging service using Twilio for SMS and WhatsApp.
+Handles phone number parsing and sending authentication links via SMS (preferred) or WhatsApp.
 """
 
 import os
@@ -13,22 +13,26 @@ from .database import Database
 
 load_dotenv()
 
-class WhatsAppAuthService:
+class MessagingService:
     def __init__(self):
         self.account_sid = os.getenv('TWILIO_ACCOUNT_SID')
         self.auth_token = os.getenv('TWILIO_AUTH_TOKEN')
         self.whatsapp_number = os.getenv('TWILIO_WHATSAPP_NUMBER')  # e.g., 'whatsapp:+14155238886'
+        self.sms_number = os.getenv('TWILIO_SMS_NUMBER')  # e.g., '+14155238886'
         self.base_url = os.getenv('DEPLOYMENT_URL', 'http://localhost:5000')
         
-        if not all([self.account_sid, self.auth_token, self.whatsapp_number]):
-            raise ValueError("Missing required Twilio environment variables: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER")
+        if not all([self.account_sid, self.auth_token]):
+            raise ValueError("Missing required Twilio environment variables: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN")
+        
+        if not self.sms_number and not self.whatsapp_number:
+            raise ValueError("At least one messaging service required: TWILIO_SMS_NUMBER or TWILIO_WHATSAPP_NUMBER")
         
         self.client = Client(self.account_sid, self.auth_token)
         self.db = Database()  # Use Supabase database for token storage
     
     def parse_phone_from_twilio_call(self, twilio_request_data: Dict[str, Any]) -> Optional[str]:
         """
-        Parse phone number from Twilio WhatsApp call request data.
+        Parse phone number from Twilio call request data.
         
         Args:
             twilio_request_data: Request data from Twilio webhook
@@ -83,6 +87,62 @@ class WhatsAppAuthService:
         
         return auth_url
     
+    def send_auth_link_sms(self, phone_number: str) -> bool:
+        """
+        Send Gmail authentication link to user via SMS.
+        
+        Args:
+            phone_number: User's phone number (including country code)
+            
+        Returns:
+            True if message sent successfully, False otherwise
+        """
+        try:
+            print(f"=== SMS SEND DEBUG ===")
+            print(f"Phone number: '{phone_number}'")
+            print(f"Account SID: {self.account_sid}")
+            print(f"SMS number: {self.sms_number}")
+            print(f"Base URL: {self.base_url}")
+            
+            if not self.sms_number:
+                print("SMS number not configured, cannot send SMS")
+                return False
+            
+            auth_url = self.create_gmail_auth_url(phone_number)
+            print(f"Generated auth URL: {auth_url}")
+            
+            message_body = f"""Gmail Authentication Required
+
+Hi! To access your Gmail through our voice messaging service, please authenticate your account by clicking the link below:
+
+{auth_url}
+
+This link is secure and will connect your phone number to your Gmail account for voice messaging.
+
+This link expires in 15 minutes for security.""".strip()
+            
+            print(f"Sending to: {phone_number}")
+            print(f"From: {self.sms_number}")
+            
+            message = self.client.messages.create(
+                body=message_body,
+                from_=self.sms_number,
+                to=phone_number
+            )
+            
+            print(f"SMS auth message sent successfully. SID: {message.sid}")
+            print(f"Message status: {message.status}")
+            return True
+            
+        except Exception as e:
+            print(f"Error sending SMS message: {e}")
+            print(f"Error type: {type(e).__name__}")
+            if hasattr(e, 'code'):
+                print(f"Twilio error code: {e.code}")
+            if hasattr(e, 'msg'):
+                print(f"Twilio error message: {e.msg}")
+            return False
+    
     def send_auth_link_whatsapp(self, phone_number: str) -> bool:
         """
         Send Gmail authentication link to user via WhatsApp.
@@ -99,6 +159,10 @@ class WhatsAppAuthService:
             print(f"Account SID: {self.account_sid}")
             print(f"WhatsApp number: {self.whatsapp_number}")
             print(f"Base URL: {self.base_url}")
+            
+            if not self.whatsapp_number:
+                print("WhatsApp number not configured, cannot send WhatsApp message")
+                return False
             
             auth_url = self.create_gmail_auth_url(phone_number)
             print(f"Generated auth URL: {auth_url}")
