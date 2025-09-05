@@ -421,7 +421,6 @@ def twilio_webhook():
 def vapi_webhook():
     try:
         payload = request.get_json()['message']
-        print(payload)
         
         # Extract caller number from payload
         caller_number = None
@@ -482,6 +481,19 @@ def vapi_webhook():
             "tools": [{"type": "function", "function": {"name": "VoiceMessaging"}}],
             "voice": {"provider": "11labs", "voice_id": "anna"}
         })
+
+@app.route('/twillio_callback', methods=['POST'])
+def wa_status_callback():
+    """Handle WhatsApp status callback from Twilio"""
+    try:
+        # Get request data from Twilio
+        print(request.form)
+        # Process callback data
+        
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        print(f"Error in wa_status_callback: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/logout')
 def logout():

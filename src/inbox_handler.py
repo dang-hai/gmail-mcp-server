@@ -226,6 +226,8 @@ class InboxHandler:
             )
             
             message = response.choices[0].message
+
+            print("message", message)
             
             # Handle tool calls
             if message.tool_calls:

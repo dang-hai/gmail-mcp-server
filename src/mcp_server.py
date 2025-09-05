@@ -37,6 +37,8 @@ def handle_inbox_request(
     Returns:
         Dictionary with the response and any tool execution results
     """
+    print("handle_inbox_request", phone_number, request)
+
     try:
         inbox_handler = get_inbox_handler()
         result = inbox_handler.handle_inbox_request(phone_number, request)
