@@ -39,7 +39,7 @@ class PhoneBasedGmailAuth:
     
     def initiate_phone_auth(self, twilio_request_data: Dict[str, Any], message_type: str = "sms") -> bool:
         """
-        Initiate authentication process from Twilio WhatsApp call.
+        Initiate authentication process.
         
         Args:
             twilio_request_data: Data from Twilio webhook request

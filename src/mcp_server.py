@@ -4,10 +4,11 @@ Provides a generic inbox tool that uses OpenAI to handle inbox requests.
 """
 
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 from fastmcp import FastMCP
-from .inbox_handler import InboxHandler
 from .phone_based_auth import PhoneBasedGmailAuth
+from .gmail_service import GmailService
+from .auth import GmailAuth
 
 # Create the FastMCP app instance
 mcp = FastMCP("Generic Inbox Server")
@@ -24,7 +25,6 @@ def _initiate_phone_auth_helper(phone_number: str) -> Dict[str, Any]:
     try:
         print(f"=== PHONE AUTH DEBUG ===")
         print(f"Attempting to send auth link to: '{phone_number}'")
-        print(f"Formatted for Twilio: 'whatsapp:{phone_number}'")
         
         phone_auth = PhoneBasedGmailAuth()
         twilio_request_data = {"From": f"whatsapp:{phone_number}"}
@@ -46,14 +46,6 @@ def _initiate_phone_auth_helper(phone_number: str) -> Dict[str, Any]:
             "status": "error",
             "message": f"Failed to initiate phone authentication: {str(e)}"
         }
-
-# Note: Removed get_gmail_messages - use get_gmail_messages_by_phone instead
-
-# Note: Removed send_gmail_message - use send_gmail_message_by_phone instead
-
-# Note: Removed get_gmail_auth_status - use get_phone_auth_status instead
-
-# Note: Removed search_gmail_messages - use get_gmail_messages_by_phone with query parameter instead
 
 @mcp.tool()
 def initiate_phone_authentication(

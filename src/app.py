@@ -467,7 +467,7 @@ def vapi_webhook():
             },
             "voice": {"provider": "11labs", "voiceId": "kdmDKE6EkgrWrrykO9Qt"},
             "firstMessage": "Hello, how can I help you with your Inbox today",
-            "backgroundSound": "off"
+            "backgroundSound": "off",
         }
         
         # Return the assistant configuration for Vapi
