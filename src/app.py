@@ -414,7 +414,7 @@ def twilio_webhook():
         ''', 200, {'Content-Type': 'application/xml'}
 
 
-@app.route('/vapi-webhook')
+@app.route('/vapi-webhook', methods=['POST'])
 def vapi_webhook(payload):
     print(payload)
     return "25ecd098-69dd-4abc-b1e1-b794e66e1231"
