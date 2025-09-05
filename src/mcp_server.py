@@ -6,7 +6,7 @@ Provides tools for reading and sending Gmail messages.
 import asyncio
 from typing import Optional, List, Dict, Any
 from fastmcp import FastMCP
-from .auth_hybrid import get_gmail_auth
+from .auth import GmailAuth
 from .gmail_service import GmailService
 from .phone_based_auth import PhoneBasedGmailAuth
 
@@ -17,7 +17,7 @@ def get_gmail_service():
     """Get Gmail service instance with hybrid authentication"""
     gmail_service = GmailService()
     # Override the auth with hybrid auth
-    gmail_service.auth = get_gmail_auth()
+    gmail_service.auth = GmailAuth()
     return gmail_service
 
 def _initiate_phone_auth_helper(phone_number: str) -> Dict[str, Any]:
