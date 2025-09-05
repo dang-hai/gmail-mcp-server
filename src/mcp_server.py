@@ -34,7 +34,7 @@ def _initiate_phone_auth_helper(phone_number: str) -> Dict[str, Any]:
         if success:
             return {
                 "status": "success",
-                "message": "Authentication link sent via WhatsApp"
+                "message": "Authentication link sent!"
             }
         else:
             return {
@@ -62,7 +62,7 @@ def initiate_phone_authentication(
 ) -> Dict[str, Any]:
     """
     Initiate Gmail authentication process for phone number.
-    Sends authentication link to user's phone via WhatsApp.
+    Sends authentication link to user's phone.
     
     Args:
         phone_number: User's phone number (including country code, e.g., +1234567890)
@@ -82,7 +82,7 @@ def initiate_phone_authentication(
         if success:
             return {
                 "status": "success",
-                "message": "Authentication link sent via WhatsApp"
+                "message": "Authentication link sent!"
             }
         else:
             return {
@@ -226,7 +226,7 @@ def check_authentication(
             return {
                 "authenticated": False,
                 "status": "not_connected",
-                "message": "Your Gmail account is not connected yet. I can send you an authentication link via WhatsApp."
+                "message": "Your Gmail account is not connected yet. I can send you an authentication link."
             }
             
     except Exception as e:

@@ -1,6 +1,6 @@
 """
 Phone-based Gmail authentication system.
-Integrates OAuth with phone number identification via WhatsApp.
+Integrates OAuth with phone number identification via messaging.
 """
 
 import os
@@ -79,7 +79,7 @@ class PhoneBasedGmailAuth:
                 success = self.messaging_service.send_auth_link_whatsapp(phone_number)
                 
                 if success:
-                    print(f"Authentication link sent via WhatsApp to {phone_number}")
+                    print(f"Authentication link sent to {phone_number}")
                 else:
                     print(f"Failed to send authentication link via both SMS and WhatsApp to {phone_number}")
                 
