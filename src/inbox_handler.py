@@ -193,6 +193,8 @@ class InboxHandler:
             system_prompt = f"""
             You are an intelligent inbox assistant that helps users manage their Gmail.
             The user's phone number is: {phone_number}
+
+            The user's request is: {request_description}
             
             Analyze deeply what the user wants to do with their inbox and use the following tools to fulfill the user's request:
             - read_emails: Read Gmail messages with optional search queries
@@ -218,8 +220,7 @@ class InboxHandler:
             response = self.client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": request_description}
+                    {"role": "user", "content": system_prompt},
                 ],
                 tools=tools,
                 tool_choice="auto"
