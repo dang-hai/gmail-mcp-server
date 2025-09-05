@@ -13,11 +13,19 @@ from .phone_based_auth import PhoneBasedGmailAuth
 mcp = FastMCP("Generic Inbox Server")
 
 def get_inbox_handler():
-    """Get inbox handler instance with OpenAI integration"""
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    if not openai_api_key:
-        raise Exception("OPENAI_API_KEY environment variable is required")
-    return InboxHandler(openai_api_key)
+    """Get inbox handler instance with LiteLLM integration"""
+    # Try to get API keys - prefer Anthropic, fallback to OpenAI
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
+    
+    if not anthropic_key and not openai_key:
+        raise Exception("Either ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable is required")
+    
+    # Default to Claude if Anthropic key is available, otherwise use OpenAI
+    if anthropic_key:
+        return InboxHandler(model="anthropic/claude-3-5-sonnet-latest")
+    else:
+        return InboxHandler(openai_api_key=openai_key, model="openai/gpt-4o-mini")
 
 
 @mcp.tool()

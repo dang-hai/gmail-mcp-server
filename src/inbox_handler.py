@@ -1,20 +1,32 @@
 """
-Generic inbox handler using OpenAI with tool calling.
+Generic inbox handler using LiteLLM with tool calling.
 Handles inbox requests by interpreting natural language and calling Gmail service directly.
+Supports multiple AI providers including Anthropic Claude and OpenAI GPT models.
 """
 
 import json
+import os
 from typing import Dict, Any, List
-from openai import OpenAI
+import litellm
 from .gmail_service import GmailService
 from .phone_based_auth import PhoneBasedGmailAuth
 
 class InboxHandler:
-    def __init__(self, openai_api_key: str):
-        self.client = OpenAI(api_key=openai_api_key)
+    def __init__(self, openai_api_key: str = None, model: str = "anthropic/claude-3-5-sonnet-latest"):
+        # Set up API keys
+        if openai_api_key:
+            os.environ["OPENAI_API_KEY"] = openai_api_key
         
-    def _get_openai_tool_definitions(self) -> List[Dict[str, Any]]:
-        """Define available Gmail operations for OpenAI"""
+        # Configure LiteLLM
+        self.model = model
+        
+        # Set Anthropic API key if available
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+        if anthropic_key:
+            os.environ["ANTHROPIC_API_KEY"] = anthropic_key
+        
+    def _get_tool_definitions(self) -> List[Dict[str, Any]]:
+        """Define available Gmail operations for LiteLLM"""
         return [
             {
                 "type": "function",
@@ -70,6 +82,27 @@ class InboxHandler:
                     "parameters": {
                         "type": "object",
                         "properties": {},
+                        "required": []
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "list_contacts",
+                    "description": "List contacts from Gmail history based on a search query",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query to filter contacts by name or email (case-insensitive)"
+                            },
+                            "max_results": {
+                                "type": "integer", 
+                                "description": "Maximum number of contacts to return (1-50, default 20)"
+                            }
+                        },
                         "required": []
                     }
                 }
@@ -165,6 +198,28 @@ class InboxHandler:
                             "message": "Gmail account is not connected"
                         }
                     }
+                    
+            elif tool_name == "list_contacts":
+                # Authenticate
+                if not gmail_service.authenticate(phone_number=phone_number):
+                    return {
+                        "success": False,
+                        "error": "Gmail authentication required. Please authenticate first."
+                    }
+                
+                query = tool_args.get("query", "")
+                max_results = tool_args.get("max_results", 20)
+                max_results = max(1, min(max_results, 50))  # Validate range
+                
+                contacts = gmail_service.list_contacts(query=query, max_results=max_results)
+                return {
+                    "success": True,
+                    "result": {
+                        "contacts": contacts,
+                        "query": query,
+                        "total_found": len(contacts)
+                    }
+                }
             else:
                 return {
                     "success": False,
@@ -179,7 +234,7 @@ class InboxHandler:
     
     def handle_inbox_request(self, phone_number: str, request_description: str) -> Dict[str, Any]:
         """
-        Handle inbox request using OpenAI tool calling with direct Gmail service integration.
+        Handle inbox request using LiteLLM tool calling with direct Gmail service integration.
         
         Args:
             phone_number: The caller's phone number
@@ -191,15 +246,15 @@ class InboxHandler:
         try:
             # System prompt for inbox operations
             system_prompt = f"""
-            You are an intelligent inbox assistant that helps users manage their Gmail.
+            You are an intelligent inbox assistant that helps users manage their inbox using only the provided tools.
             The user's phone number is: {phone_number}
-
             The user's request is: {request_description}
             
-            Analyze deeply what the user wants to do with their inbox and use the following tools to fulfill the user's request:
+            Analyze what the user wants to do with their inbox and use only the following tools to fulfill the user's request:
             - read_emails: Read Gmail messages with optional search queries
             - send_email: Send emails (requires to, subject, body)
             - check_auth: Check Gmail authentication status
+            - list_contacts: Find contacts from email history based on name or email queries
             
             For reading emails:
             - Use Gmail search queries when helpful (e.g., "is:unread", "from:example@gmail.com")
@@ -209,22 +264,31 @@ class InboxHandler:
             - Extract recipient, subject, and body from user's request
             - Ensure all required fields are present
             
+            For listing contacts:
+            - Use when user asks about contacts, people they've emailed, or finding someone's email
+            - Use query parameter to filter by name or partial email address
+            - Keep max_results reasonable for voice (default 20)
+            
             Provide helpful, concise responses suitable for voice interaction.
             If authentication is required, let the user know they need to authenticate first.
             """
             
-            # Get OpenAI tool definitions
-            tools = self._get_openai_tool_definitions()
+            # Get tool definitions
+            tools = self._get_tool_definitions()
             
-            # Make OpenAI request with tool calling
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "user", "content": system_prompt},
-                ],
-                tools=tools,
-                tool_choice="auto"
-            )
+            # Make LiteLLM request with tool calling
+            try:
+                response = litellm.completion(
+                    model=self.model,
+                    messages=[
+                        {"role": "user", "content": system_prompt},
+                    ],
+                    tools=tools,
+                    tool_choice="auto"
+                )
+            except Exception as e:
+                print(f"Error with LiteLLM completion: {e}")
+                raise
             
             message = response.choices[0].message
 
@@ -254,16 +318,20 @@ class InboxHandler:
                     else:
                         tool_results_message += f"- {result['tool']}: Error - {result['error']}\n"
                 
-                # Get final response from OpenAI
-                final_response = self.client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": request_description},
-                        {"role": "assistant", "content": message.content or ""},
-                        {"role": "user", "content": tool_results_message + "\n\nProvide a helpful summary for the user."}
-                    ]
-                )
+                # Get final response from LiteLLM
+                try:
+                    final_response = litellm.completion(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": request_description},
+                            {"role": "assistant", "content": message.content or ""},
+                            {"role": "user", "content": tool_results_message + "\n\nProvide a helpful summary for the user."}
+                        ]
+                    )
+                except Exception as e:
+                    print(f"Error with LiteLLM final response: {e}")
+                    raise
                 
                 return {
                     "success": True,

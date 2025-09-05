@@ -10,3 +10,4 @@ psycopg2-binary==2.9.10
 twilio==8.10.0
 phonenumbers==8.13.27
 openai==1.106.1
+litellm==1.48.10
