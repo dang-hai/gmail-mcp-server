@@ -414,6 +414,11 @@ def twilio_webhook():
         ''', 200, {'Content-Type': 'application/xml'}
 
 
+@app.route('/vapi-webhook')
+def vapi_webhook(payload):
+    print(payload)
+    return "25ecd098-69dd-4abc-b1e1-b794e66e1231"
+
 @app.route('/logout')
 def logout():
     """Logout user and remove their OAuth tokens"""
