@@ -466,9 +466,9 @@ Always include the user's phone number when calling functions:
 
 ## Authentication Flow
 1. If Gmail access fails, call initiate_phone_authentication with the user's phone number
-2. Tell the user: "I've sent you a WhatsApp message with an authentication link. Please click
+2. Tell the user: "I've sent you a message with an authentication link. Please click
 it and then try again."
-3. The user will receive the link via WhatsApp and can authenticate their Gmail
+3. The user will receive the link via SMS or WhatsApp and can authenticate their Gmail
 
 ## Response Style
 - Be warm but professional
