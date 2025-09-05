@@ -19,10 +19,6 @@ def get_inbox_handler():
     return InboxHandler(openai_api_key)
 
 
-
-
-
-
 @mcp.tool()
 def handle_inbox_request(
     phone_number: str,
