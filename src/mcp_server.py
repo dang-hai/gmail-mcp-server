@@ -12,100 +12,225 @@ from .phone_based_auth import PhoneBasedGmailAuth
 # Create the FastMCP app instance
 mcp = FastMCP("Generic Inbox Server")
 
-def get_inbox_handler():
-    """Get inbox handler instance with LiteLLM integration"""
-    # Try to get API keys - prefer Anthropic, fallback to OpenAI
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
-    
-    if not anthropic_key and not openai_key:
-        raise Exception("Either ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable is required")
-    
-    # Default to Claude if Anthropic key is available, otherwise use OpenAI
-    if anthropic_key:
-        return InboxHandler(model="anthropic/claude-3-5-sonnet-latest")
-    else:
-        return InboxHandler(openai_api_key=openai_key, model="openai/gpt-4o-mini")
+def get_gmail_service():
+    """Get Gmail service instance with hybrid authentication"""
+    gmail_service = GmailService()
+    # Override the auth with hybrid auth
+    gmail_service.auth = GmailAuth()
+    return gmail_service
 
-
-@mcp.tool()
-def handle_inbox_request(
-    phone_number: str,
-    request: str
-) -> Dict[str, Any]:
-    """
-    Generic inbox tool that handles inbox requests using natural language.
-    Uses OpenAI with tool calling to interpret requests and perform Gmail operations.
-    
-    Args:
-        phone_number: The caller's phone number (Vapi should provide this automatically)
-        request: Natural language description of what the user wants to do with their inbox
-                (e.g., "read my unread emails", "send an email to john@example.com")
-    
-    Returns:
-        Dictionary with the response and any tool execution results
-    """
-    print("handle_inbox_request", phone_number, request)
-
+def _initiate_phone_auth_helper(phone_number: str) -> Dict[str, Any]:
+    """Helper function to initiate phone authentication"""
     try:
-        inbox_handler = get_inbox_handler()
-        result = inbox_handler.handle_inbox_request(phone_number, request)
-        return result
+        print(f"=== PHONE AUTH DEBUG ===")
+        print(f"Attempting to send auth link to: '{phone_number}'")
+        print(f"Formatted for Twilio: 'whatsapp:{phone_number}'")
         
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Could not process inbox request: {str(e)}",
-            "response": "I'm sorry, I encountered an error while processing your inbox request."
-        }
-
-
-@mcp.tool()
-def initiate_gmail_auth(
-    phone_number: str,
-    from_number: str = None,
-    message_type: str = "sms"
-) -> Dict[str, Any]:
-    """
-    Initiate phone-based Gmail authentication flow.
-    Sends an authentication link to the user's phone via SMS or WhatsApp.
-    
-    Args:
-        phone_number: The user's phone number (in international format, e.g., +1234567890)
-        from_number: The number the request is coming from (optional, for validation)
-        message_type: Type of message to send ("sms" or "whatsapp", defaults to "sms")
-    
-    Returns:
-        Dictionary indicating success/failure and next steps
-    """
-    try:
         phone_auth = PhoneBasedGmailAuth()
-        
-        # Create mock Twilio request data for compatibility
-        twilio_request_data = {
-            "From": from_number or phone_number,
-            "To": phone_number
-        }
-        
-        success = phone_auth.initiate_phone_auth(twilio_request_data, message_type)
+        twilio_request_data = {"From": f"whatsapp:{phone_number}"}
+        success = phone_auth.initiate_phone_auth(twilio_request_data)
         
         if success:
-            message_medium = "WhatsApp" if message_type == "whatsapp" else "SMS" if message_type == "sms" else "your messages"
             return {
-                "success": True,
-                "message": f"Authentication link sent to {phone_number} via {message_medium}. Please check your messages and follow the link to connect your Gmail account.",
-                "next_steps": "Click the authentication link sent to your phone to complete Gmail setup."
+                "status": "success",
+                "message": "Authentication link sent!"
             }
         else:
             return {
-                "success": False,
-                "error": "Failed to send authentication link",
-                "message": "Unable to send authentication link. Please try again or contact support."
+                "status": "error", 
+                "message": "Failed to send authentication link"
             }
             
     except Exception as e:
         return {
-            "success": False,
-            "error": f"Authentication initiation failed: {str(e)}",
-            "message": "Sorry, there was an error starting the authentication process. Please try again."
+            "status": "error",
+            "message": f"Failed to initiate phone authentication: {str(e)}"
+        }
+
+# Note: Removed get_gmail_messages - use get_gmail_messages_by_phone instead
+
+# Note: Removed send_gmail_message - use send_gmail_message_by_phone instead
+
+# Note: Removed get_gmail_auth_status - use get_phone_auth_status instead
+
+# Note: Removed search_gmail_messages - use get_gmail_messages_by_phone with query parameter instead
+
+@mcp.tool()
+def initiate_phone_authentication(
+    phone_number: str
+) -> Dict[str, Any]:
+    """
+    Initiate Gmail authentication process for phone number.
+    Sends authentication link to user's phone.
+    
+    Args:
+        phone_number: User's phone number (including country code, e.g., +1234567890)
+    
+    Returns:
+        Dictionary with status and message
+    """
+    try:
+        print(f"=== INITIATE AUTH DEBUG ===")
+        print(f"Phone number received: '{phone_number}'")
+        
+        phone_auth = PhoneBasedGmailAuth()
+        # Convert phone number to Twilio request format
+        twilio_request_data = {"From": f"whatsapp:{phone_number}"}
+        success = phone_auth.initiate_phone_auth(twilio_request_data)
+        
+        if success:
+            return {
+                "status": "success",
+                "message": "Authentication link sent!"
+            }
+        else:
+            return {
+                "status": "error", 
+                "message": "Failed to send authentication link"
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to initiate phone authentication: {str(e)}"
+        }
+
+@mcp.tool()
+def read_emails(
+    phone_number: str,
+    query: str = "",
+    max_results: int = 5
+) -> List[Dict[str, Any]]:
+    """
+    Read Gmail messages for the caller. Use this when user asks to read their emails.
+    
+    Args:
+        phone_number: The caller's phone number (Vapi should provide this automatically)
+        query: Optional Gmail search query (e.g., "is:unread", "from:someone@example.com")
+        max_results: Maximum number of messages to return (1-10, default 5 for voice)
+    
+    Returns:
+        List of email messages with sender, subject, date, and body
+    """
+    try:
+        print(f"=== READ EMAILS DEBUG ===")
+        print(f"Phone number received from Vapi: '{phone_number}'")
+        print(f"Phone number type: {type(phone_number)}")
+        print(f"Phone number length: {len(phone_number)}")
+        print(f"Query: '{query}'")
+        print(f"Max results: {max_results}")
+        phone_auth = PhoneBasedGmailAuth()
+        gmail_service = GmailService(phone_auth)
+        
+        # Authenticate using phone number
+        if not gmail_service.authenticate(phone_number=phone_number):
+            # Try to initiate auth if not authenticated
+            auth_result = _initiate_phone_auth_helper(phone_number)
+            if auth_result["status"] == "success":
+                raise Exception("Gmail authentication required. I've sent you an authentication link. Please click the link and try again.")
+            else:
+                raise Exception(f"Failed to send authentication link: {auth_result['message']}")
+        
+        # Validate max_results for voice (keep it small)
+        max_results = max(1, min(max_results, 10))
+        
+        messages = gmail_service.get_messages(query=query, max_results=max_results)
+        return messages
+        
+    except Exception as e:
+        raise Exception(f"Could not read emails: {str(e)}")
+
+@mcp.tool()
+def send_email(
+    phone_number: str,
+    to: str,
+    subject: str,
+    body: str
+) -> Dict[str, Any]:
+    """
+    Send an email via Gmail for the caller. Use this when user wants to send an email.
+    
+    Args:
+        phone_number: The caller's phone number (Vapi should provide this automatically)
+        to: Recipient email address
+        subject: Email subject line
+        body: Email message content
+    
+    Returns:
+        Dictionary with success status and message details
+    """
+    try:
+        phone_auth = PhoneBasedGmailAuth()
+        gmail_service = GmailService(phone_auth)
+        
+        # Authenticate using phone number
+        if not gmail_service.authenticate(phone_number=phone_number):
+            # Try to initiate auth if not authenticated
+            auth_result = _initiate_phone_auth_helper(phone_number)
+            if auth_result["status"] == "success":
+                raise Exception("Gmail authentication required. I've sent you an authentication link. Please click the link and try again.")
+            else:
+                raise Exception(f"Failed to send authentication link: {auth_result['message']}")
+        
+        # Validate inputs
+        if not to or not subject or not body:
+            raise Exception("I need the recipient email, subject, and message content to send an email.")
+        
+        result = gmail_service.send_message(to, subject, body)
+        
+        if result:
+            return {
+                "status": "success",
+                "message": f"Email sent successfully to {to}",
+                "message_id": result.get("id", "unknown"),
+                "to": to,
+                "subject": subject
+            }
+        else:
+            raise Exception("Failed to send the email. Please try again.")
+            
+    except Exception as e:
+        raise Exception(f"Could not send email: {str(e)}")
+
+@mcp.tool()
+def check_authentication(
+    phone_number: str
+) -> Dict[str, Any]:
+    """
+    Check if the caller's Gmail is authenticated and ready to use.
+    
+    Args:
+        phone_number: The caller's phone number (Vapi should provide this automatically)
+    
+    Returns:
+        Dictionary with authentication status and guidance
+    """
+    try:
+        phone_auth = PhoneBasedGmailAuth()
+        creds = phone_auth.get_credentials(phone_number)
+        
+        if creds and creds.valid:
+            return {
+                "authenticated": True,
+                "status": "ready",
+                "message": "Your Gmail account is connected and ready to use!"
+            }
+        elif creds and creds.expired:
+            return {
+                "authenticated": False,
+                "status": "expired", 
+                "message": "Your Gmail authentication has expired. I'll send you a new authentication link."
+            }
+        else:
+            return {
+                "authenticated": False,
+                "status": "not_connected",
+                "message": "Your Gmail account is not connected yet. I can send you an authentication link."
+            }
+            
+    except Exception as e:
+        return {
+            "authenticated": False,
+            "status": "error",
+            "message": f"Could not check authentication status: {str(e)}"
         }

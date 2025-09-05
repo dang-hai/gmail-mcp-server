@@ -73,7 +73,7 @@ class PhoneBasedGmailAuth:
             if message_type == "whatsapp":
                 success = self.messaging_service.send_auth_link_whatsapp(phone_number)
                 if success:
-                    print(f"Authentication link sent via WhatsApp to {phone_number}")
+                    print(f"Authentication link sent to {phone_number}")
                 else:
                     print(f"Failed to send authentication link via WhatsApp to {phone_number}")
                 return success
