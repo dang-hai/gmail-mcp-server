@@ -226,3 +226,53 @@ def check_authentication(
             "status": "error",
             "message": f"Could not check authentication status: {str(e)}"
         }
+
+@mcp.tool()
+def mark_email_read_status(
+    phone_number: str,
+    message_id: str,
+    mark_as_read: bool = True
+) -> Dict[str, Any]:
+    """
+    Mark an email as read or unread. Use this when user wants to mark emails as read/unread.
+    
+    Args:
+        phone_number: The caller's phone number (Vapi should provide this automatically)
+        message_id: The ID of the email message to mark
+        mark_as_read: True to mark as read, False to mark as unread (default: True)
+    
+    Returns:
+        Dictionary with success status and message details
+    """
+    try:
+        phone_auth = PhoneBasedGmailAuth()
+        gmail_service = GmailService(phone_auth)
+        
+        # Authenticate using phone number
+        if not gmail_service.authenticate(phone_number=phone_number):
+            # Try to initiate auth if not authenticated
+            auth_result = _initiate_phone_auth_helper(phone_number)
+            if auth_result["status"] == "success":
+                raise Exception("Gmail authentication required. I've sent you an authentication link. Please click the link and try again.")
+            else:
+                raise Exception(f"Failed to send authentication link: {auth_result['message']}")
+        
+        # Validate inputs
+        if not message_id:
+            raise Exception("I need the email message ID to mark it as read or unread.")
+        
+        result = gmail_service.mark_message_read_status(message_id, mark_as_read)
+        
+        if result:
+            status_text = "read" if mark_as_read else "unread"
+            return {
+                "status": "success",
+                "message": f"Email marked as {status_text} successfully",
+                "message_id": message_id,
+                "marked_as_read": mark_as_read
+            }
+        else:
+            raise Exception("Failed to update the email status. Please try again.")
+            
+    except Exception as e:
+        raise Exception(f"Could not mark email as read/unread: {str(e)}")

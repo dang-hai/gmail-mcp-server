@@ -246,3 +246,48 @@ class GmailService:
                     addresses.append((email_addr, ''))
         
         return addresses
+    
+    def mark_message_read_status(self, message_id, mark_as_read=True):
+        """
+        Mark a message as read or unread.
+        
+        Args:
+            message_id: The ID of the message to modify
+            mark_as_read: True to mark as read, False to mark as unread
+            
+        Returns:
+            Modified message data on success, None on failure
+        """
+        if not self.service:
+            raise Exception("Not authenticated")
+            
+        try:
+            if mark_as_read:
+                # Remove UNREAD label to mark as read
+                modify_request = {
+                    'removeLabelIds': ['UNREAD']
+                }
+            else:
+                # Add UNREAD label to mark as unread
+                modify_request = {
+                    'addLabelIds': ['UNREAD']
+                }
+            
+            result = self.service.users().messages().modify(
+                userId='me',
+                id=message_id,
+                body=modify_request
+            ).execute()
+            
+            return result
+            
+        except HttpError as error:
+            if error.resp.status == 401:  # Unauthorized - token expired
+                print("Token expired, attempting to re-authenticate...")
+                if self.authenticate(self.user_id):
+                    return self.mark_message_read_status(message_id, mark_as_read)  # Retry
+            print(f'HTTP error occurred: {error}')
+            return None
+        except Exception as error:
+            print(f'An error occurred: {error}')
+            return None

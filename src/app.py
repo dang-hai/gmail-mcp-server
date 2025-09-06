@@ -463,7 +463,10 @@ def vapi_webhook():
                         "content": system_prompt
                     }
                 ],
-                "toolIds": ["50b1c2e3-5224-4863-bf20-baeb85c05f8e"],
+                "toolIds": [
+                    "50b1c2e3-5224-4863-bf20-baeb85c05f8e", # Email Messaging MCP Tool
+                    "5aa2dc18-650b-45d8-9b4a-168f2f8d8d34", # WhatsApp MCP Tool
+                ],
             },
             "voice": {"provider": "11labs", "voiceId": "kdmDKE6EkgrWrrykO9Qt"},
             "firstMessage": "Hello, how can I help you with your Inbox today",
